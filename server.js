@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 const CSV_URL = process.env.CSV_URL
 
 // Fungsi untuk streaming data CSV dari URL
