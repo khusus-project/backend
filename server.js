@@ -1,3 +1,4 @@
+require("dotenv").config()
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -13,19 +14,11 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const PORT = 3001;
-const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-GI0juM14m2HUcy2inBgyIDlk_Ebmo_4Wl6kN0kyiSRu4eV70GKafqFRH7duwlpvc4ygkx4hGqSQQ/pub?gid=1318934455&single=true&output=csv";
-const CSV_FILE_PATH = path.join(__dirname, "/assets/dpt.csv");
-
-let totalRows = 0; // Variabel global untuk menghitung total baris
-let totalTPS = 0;
-
-console.log(totalTPS);
+const CSV_URL = process.env.CSV_URL
 
 // Fungsi untuk streaming data CSV dari URL
 const streamCsvFromUrl = async () => {
   return new Promise((resolve, reject) => {
-    totalRows = 0; // Reset counter
     const dataRows = [];
 
     axios({
@@ -37,7 +30,6 @@ const streamCsvFromUrl = async () => {
         const csvStream = response.data.pipe(csv());
         csvStream
           .on("data", (row) => {
-            totalRows++; // Menghitung jumlah baris
             dataRows.push(row);
           })
           .on("end", () => {
@@ -264,6 +256,7 @@ app.get("/get-summary", async (req, res) => {
     res.status(500).send("Error fetching CSV data");
   }
 });
+
 app.get("/get-summary-tps", async (req, res) => {
   try {
     const summary = await csvTpsSummary(); // Streaming CSV dari fungsi csvDataSummary
@@ -287,104 +280,6 @@ app.get("/get-all-data", async (req, res) => {
   try {
     const data = await streamCsvFromUrl(); // Streaming CSV dari fungsi csvDataSummary
     res.json(data); // Kirim hasil dalam format JSON
-  } catch (error) {
-    res.status(500).send("Error fetching CSV data");
-  }
-});
-
-// Fungsi untuk streaming data CSV dan menghitung berdasarkan kecamatan dan kelurahan
-const streamCsvAndCategorizeByDistrictAndVillage = async () => {
-  return new Promise((resolve, reject) => {
-    // Struktur data untuk hasil akhir
-    let districtData = {};
-
-    axios({
-      method: "get",
-      url: CSV_URL,
-      responseType: "stream",
-    })
-      .then((response) => {
-        const csvStream = response.data.pipe(csv());
-        csvStream
-          .on("data", (row) => {
-            const kecamatan = row["id_kecamatan"]; // Asumsi kolom Kecamatan
-            const kelurahan = row["kelurahan"]; // Asumsi kolom Kelurahan
-            const gender = row["gender"]; // Asumsi kolom Gender (L atau P)
-
-            if (!kecamatan || !kelurahan || !gender) {
-              return; // Lewati data jika salah satu kolom tidak ada
-            }
-
-            // Jika kecamatan belum ada di objek districtData, inisialisasi
-            if (!districtData[kecamatan]) {
-              districtData[kecamatan] = {
-                kelurahanCount: 0,
-                kelurahanData: {},
-              };
-            }
-
-            // Jika kelurahan belum ada di kecamatan tersebut, inisialisasi
-            if (!districtData[kecamatan].kelurahanData[kelurahan]) {
-              districtData[kecamatan].kelurahanData[kelurahan] = {
-                total: 0,
-                gender: {
-                  L: 0, // Laki-laki
-                  P: 0, // Perempuan
-                },
-              };
-              // Tambahkan jumlah kelurahan pada kecamatan tersebut
-              districtData[kecamatan].kelurahanCount++;
-            }
-
-            // Tambahkan total data pada kelurahan
-            districtData[kecamatan].kelurahanData[kelurahan].total++;
-
-            // Tambahkan jumlah berdasarkan gender
-            if (gender === "L") {
-              districtData[kecamatan].kelurahanData[kelurahan].gender.L++;
-            } else if (gender === "P") {
-              districtData[kecamatan].kelurahanData[kelurahan].gender.P++;
-            }
-          })
-          .on("end", () => {
-            resolve(districtData); // Selesaikan dan kirimkan hasil
-          })
-          .on("error", (error) => {
-            reject(error); // Tangani error
-          });
-      })
-      .catch((error) => {
-        reject(error);
-      });
-  });
-};
-
-// Endpoint untuk pagination data CSV
-app.get("/get-csv-data", async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const startIndex = (page - 1) * limit;
-  const endIndex = page * limit;
-
-  try {
-    const data = await streamCsvFromUrl(); // Streaming data CSV dari URL
-    const paginatedData = data.slice(startIndex, endIndex); // Ambil data sesuai halaman
-
-    res.json({
-      page,
-      limit,
-      data: paginatedData, // Kirim data dalam format JSON
-    });
-  } catch (error) {
-    res.status(500).send("Error fetching CSV data");
-  }
-});
-
-app.get("/district-village-gender", async (req, res) => {
-  try {
-    const result = await streamCsvAndCategorizeByDistrictAndVillage(); // Streaming CSV dan hitung kategori
-    res.json(result); // Kirim hasil dalam format JSON
-    console.log(result);
   } catch (error) {
     res.status(500).send("Error fetching CSV data");
   }
