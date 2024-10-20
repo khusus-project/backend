@@ -1,4 +1,4 @@
-require("dotenv").config()
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -14,7 +14,8 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3001;
-const CSV_URL = process.env.CSV_URL
+const CSV_URL = process.env.CSV_URL;
+const CSV_GRAFIK_DEMO = process.env.CSV_GRAFIK_DEMO;
 
 // Fungsi untuk streaming data CSV dari URL
 const streamCsvFromUrl = async () => {
@@ -24,6 +25,34 @@ const streamCsvFromUrl = async () => {
     axios({
       method: "get",
       url: CSV_URL,
+      responseType: "stream",
+    })
+      .then((response) => {
+        const csvStream = response.data.pipe(csv());
+        csvStream
+          .on("data", (row) => {
+            dataRows.push(row);
+          })
+          .on("end", () => {
+            resolve(dataRows); // Mengembalikan semua data setelah streaming selesai
+          })
+          .on("error", (error) => {
+            reject(error);
+          });
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+};
+
+const streamCsvDemoFromUrl = async () => {
+  return new Promise((resolve, reject) => {
+    const dataRows = [];
+
+    axios({
+      method: "get",
+      url: CSV_GRAFIK_DEMO,
       responseType: "stream",
     })
       .then((response) => {
@@ -248,6 +277,130 @@ const groupByKelurahan = (data) => {
   return summaryKelurahan;
 };
 
+const groupGrafikByKelurahan = (data) => {
+  const perolehanKelurahan = [];
+  data.forEach((row) => {
+    const id_kecamatan = row.id_kecamatan;
+    const id_kelurahan = row.id_kelurahan;
+    const kecamatan = row.kecamatan;
+    const kelurahan = row.kelurahan;
+    const pria = Number(row.pria);
+    const wanita = Number(row.wanita);
+    const totalDpt = Number(row.totalDpt);
+    const pekman = Number(row.pekman);
+    const jbr_hadir = Number(row.jbr_hadir);
+    const bmd_dipo = Number(row.bmd_dipo);
+    const abr_harus = Number(row.abr_harus);
+
+    let existingPerolehanKelurahan = perolehanKelurahan.find(
+      (item) => item.id_kelurahan === id_kelurahan
+    );
+
+    if (!existingPerolehanKelurahan) {
+      existingPerolehanKelurahan = {
+        id_kecamatan: id_kecamatan,
+        id_kelurahan: id_kelurahan,
+        kecamatan: kecamatan,
+        kelurahan: kelurahan,
+        totalTps: 0,
+        pria: 0,
+        wanita: 0,
+        totalDpt: 0,
+        pekman: 0,
+        jbr_hadir: 0,
+        bmd_dipo: 0,
+        abr_harus: 0,
+      };
+      perolehanKelurahan.push(existingPerolehanKelurahan);
+    }
+    existingPerolehanKelurahan.pria += pria;
+    existingPerolehanKelurahan.wanita += wanita;
+    existingPerolehanKelurahan.totalDpt += totalDpt;
+    existingPerolehanKelurahan.totalTps += 1;
+    existingPerolehanKelurahan.pekman += pekman;
+    existingPerolehanKelurahan.jbr_hadir += jbr_hadir;
+    existingPerolehanKelurahan.bmd_dipo += bmd_dipo;
+    existingPerolehanKelurahan.abr_harus += abr_harus;
+  });
+  return perolehanKelurahan;
+};
+
+const groupGrafikByKecamatan = (data) => {
+  const perolehanKecamatan = [];
+  data.forEach((row) => {
+    const id_kecamatan = row.id_kecamatan;
+    const id_kelurahan = row.id_kelurahan;
+    const kecamatan = row.kecamatan;
+    const kelurahan = row.kelurahan;
+    const pria = Number(row.pria);
+    const wanita = Number(row.wanita);
+    const totalDpt = Number(row.totalDpt);
+    const pekman = Number(row.pekman);
+    const jbr_hadir = Number(row.jbr_hadir);
+    const bmd_dipo = Number(row.bmd_dipo);
+    const abr_harus = Number(row.abr_harus);
+
+    let existingPerolehanKecamatan = perolehanKecamatan.find(
+      (item) => item.id_kecamatan === id_kecamatan
+    );
+
+    if (!existingPerolehanKecamatan) {
+      existingPerolehanKecamatan = {
+        id_kecamatan: id_kecamatan,
+        id_kelurahan: id_kelurahan,
+        kecamatan: kecamatan,
+        kelurahan: kelurahan,
+        totalTps: 0,
+        pria: 0,
+        wanita: 0,
+        totalDpt: 0,
+        pekman: 0,
+        jbr_hadir: 0,
+        bmd_dipo: 0,
+        abr_harus: 0,
+      };
+      perolehanKecamatan.push(existingPerolehanKecamatan);
+    }
+    existingPerolehanKecamatan.pria += pria;
+    existingPerolehanKecamatan.wanita += wanita;
+    existingPerolehanKecamatan.totalDpt += totalDpt;
+    existingPerolehanKecamatan.totalTps += 1;
+    existingPerolehanKecamatan.pekman += pekman;
+    existingPerolehanKecamatan.jbr_hadir += jbr_hadir;
+    existingPerolehanKecamatan.bmd_dipo += bmd_dipo;
+    existingPerolehanKecamatan.abr_harus += abr_harus;
+  });
+  return perolehanKecamatan;
+};
+
+const hasilPaslon = (data) => {
+  const result = [
+    {
+      pekman: data.reduce((total, item) => total + Number(item.pekman), 0),
+      slug: "PEKMAN",
+    },
+    {
+      jbr_hadir: data.reduce(
+        (total, item) => total + Number(item.jbr_hadir),
+        0
+      ),
+      slug: "JBR HADIR",
+    },
+    {
+      bmd_dipo: data.reduce((total, item) => total + Number(item.bmd_dipo), 0),
+      slug: "BMD DIPO",
+    },
+    {
+      abr_harus: data.reduce(
+        (total, item) => total + Number(item.abr_harus),
+        0
+      ),
+      slug: "ABR HARUS",
+    },
+  ];
+  return result;
+};
+
 app.get("/get-summary", async (req, res) => {
   try {
     const summary = await csvDataSummary(); // Streaming CSV dari fungsi csvDataSummary
@@ -280,6 +433,35 @@ app.get("/get-all-data", async (req, res) => {
   try {
     const data = await streamCsvFromUrl(); // Streaming CSV dari fungsi csvDataSummary
     res.json(data); // Kirim hasil dalam format JSON
+  } catch (error) {
+    res.status(500).send("Error fetching CSV data");
+  }
+});
+
+app.get("/get-grafik-demo-kecamatan", async (req, res) => {
+  try {
+    const data = await streamCsvDemoFromUrl(); // Streaming CSV dari fungsi csvDataSummary
+    const summary = await groupGrafikByKecamatan(data);
+    res.json(summary); // Kirim hasil dalam format JSON
+  } catch (error) {
+    res.status(500).send("Error fetching CSV data");
+  }
+});
+
+app.get("/get-hasil-paslon", async (req, res) => {
+  try {
+    const data = await streamCsvDemoFromUrl(); // Streaming CSV dari fungsi csvDataSummary
+    const summary = await hasilPaslon(data);
+    res.json(summary); // Kirim hasil dalam format JSON
+  } catch (error) {
+    res.status(500).send("Error fetching CSV data");
+  }
+});
+app.get("/get-grafik-demo-kelurahan", async (req, res) => {
+  try {
+    const data = await streamCsvDemoFromUrl(); // Streaming CSV dari fungsi csvDataSummary
+    const summary = await groupGrafikByKelurahan(data);
+    res.json(summary); // Kirim hasil dalam format JSON
   } catch (error) {
     res.status(500).send("Error fetching CSV data");
   }
